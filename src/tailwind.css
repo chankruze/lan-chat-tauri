@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@layer utilities {
+  @keyframes scan-ltr {
+    0%, 100% {
+      left: 0%;
+    }
+    50% {
+      left: 100%;
+    }
+  }
+
+  @keyframes scan-rtl {
+    0%, 100% {
+      left: 100%;
+    }
+    50% {
+      left: 0%;
+    }
+  }
+
+  .animate-scan-ltr {
+    animation: scan-ltr 10s linear infinite;
+  }
+
+  .animate-scan-rtl {
+    animation: scan-rtl 10s linear infinite;
+  }
+}
