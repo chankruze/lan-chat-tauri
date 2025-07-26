@@ -24,3 +24,28 @@ pub async fn get_current_peers(state: State<'_, AppState>) -> Result<Vec<PeerInf
 
     Ok(peer_list)
 }
+
+#[tauri::command]
+pub async fn update_name(
+    new_name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if new_name.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+
+    let mut identity = state.identity.write().await;
+
+    if new_name.trim() == identity.peer_name() {
+        return Ok(());
+    }
+
+    identity.update_peer_name(new_name.trim());
+    drop(identity);
+
+    let notifier = state.notifier.lock().await;
+    notifier.advertise();
+    drop(notifier);
+
+    Ok(())
+}

@@ -47,6 +47,14 @@ const platformIcon = (platform?: string) => {
 
 const Home = () => {
   const [peers, setPeers] = useState<Record<string, PeerInfo>>({});
+  const [newName, setNewName] = useState("");
+
+  const handleNameUpdate = async () => {
+    if (!newName.trim()) return;
+    console.log("exec");
+    await invoke("update_name", { newName });
+    setNewName("");
+  };
 
   useEffect(() => {
     invoke<PeerInfo[]>("get_current_peers").then((peersList) => {
@@ -120,6 +128,21 @@ const Home = () => {
             </div>
           );
         })}
+      </div>
+      <div className="bg-neutral-100 px-4 py-2 flex items-center gap-2 border-t border-neutral-300">
+        <input
+          type="text"
+          className="flex-1 px-2 py-1 rounded border text-sm"
+          value={newName}
+          placeholder="Enter new name"
+          onChange={(e) => setNewName(e.target.value)}
+        />
+        <button
+          onClick={handleNameUpdate}
+          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+        >
+          Update Name
+        </button>
       </div>
       <div className="text-xs py-2 px-4 flex items-center justify-between bg-green-600 text-white">
         <p>
