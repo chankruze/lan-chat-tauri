@@ -23,7 +23,7 @@ type PeerInfo = {
 };
 
 type PeerEvent = {
-  type: "Joined" | "Left" | "Updated";
+  type: "Joined" | "Left" | "Updated" | "Reconnected";
   id: string;
   timestamp: string;
   source: string;
@@ -31,7 +31,7 @@ type PeerEvent = {
 };
 
 const platformIcon = (platform?: string) => {
-  switch ((platform || "").toLowerCase().split(" ").join("")) {
+  switch ((platform || "").toLowerCase().replace(/\s/g, "")) {
     case "windows":
       return <WindowsIcon className="w-4 h-4 text-blue-600" />;
     case "macos":
@@ -51,41 +51,59 @@ const Home = () => {
 
   const handleNameUpdate = async () => {
     if (!newName.trim()) return;
-    console.log("exec");
     await invoke("update_name", { newName });
     setNewName("");
   };
 
-  useEffect(() => {
-    invoke<PeerInfo[]>("get_current_peers").then((peersList) => {
-      setPeers((prev) => {
-        const newPeers = { ...prev };
-        peersList.forEach((peer) => {
-          newPeers[peer.id] = peer;
-        });
-        return newPeers;
-      });
-    });
+  const handleEvent = (event: PeerEvent) => {
+    setPeers((prevPeers) => {
+      const updatedPeers = { ...prevPeers };
+      const { type, peer } = event;
 
-    const unlisten = listen("peer-event", (event: { payload: PeerEvent }) => {
-      const { type, peer } = event.payload;
-      setPeers((prevPeers) => {
-        const updatedPeers = { ...prevPeers };
-        switch (type) {
-          case "Joined":
-          case "Updated":
-            updatedPeers[peer.id] = peer;
-            break;
-          case "Left":
-            delete updatedPeers[peer.id];
-            break;
-        }
-        return updatedPeers;
+      switch (type) {
+        case "Joined":
+        case "Updated":
+        case "Reconnected":
+          updatedPeers[peer.id] = peer;
+          break;
+        case "Left":
+          delete updatedPeers[peer.id];
+          break;
+      }
+
+      return updatedPeers;
+    });
+  };
+
+  useEffect(() => {
+    const eventTypes = [
+      "peer-connected",
+      "peer-updated",
+      "peer-reconnected",
+      "peer-disconnected",
+    ];
+
+    const unlistenFns: Promise<() => void>[] = eventTypes.map((eventName) =>
+      listen(eventName, (event: { payload: PeerEvent }) => {
+        handleEvent(event.payload);
+      }),
+    );
+
+    // Initial fetch
+    invoke<PeerInfo[]>("get_current_peers").then((peersList) => {
+      setPeers(() => {
+        const initialPeers: Record<string, PeerInfo> = {};
+        peersList.forEach((peer) => {
+          initialPeers[peer.id] = peer;
+        });
+        return initialPeers;
       });
     });
 
     return () => {
-      unlisten.then((fn) => fn());
+      unlistenFns.forEach((unlisten) => {
+        unlisten.then((fn) => fn());
+      });
     };
   }, []);
 
@@ -160,3 +178,13 @@ const Home = () => {
 };
 
 export default Home;
+
+// invoke<PeerInfo[]>("get_current_peers").then((peersList) => {
+//   setPeers((prev) => {
+//     const newPeers = { ...prev };
+//     peersList.forEach((peer) => {
+//       newPeers[peer.id] = peer;
+//     });
+//     return newPeers;
+//   });
+// });

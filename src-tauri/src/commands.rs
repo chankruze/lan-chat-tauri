@@ -1,6 +1,7 @@
-use crate::app_state::AppState;
-use lan_chat::peer::PeerInfo;
+use lan_chat::peer::{PeerIdentity, PeerInfo, PeerManager};
+use std::sync::Arc;
 use tauri::{command, State};
+use tokio::sync::{mpsc::UnboundedSender, RwLock};
 
 #[command]
 pub async fn connect_to_peer(peer_addr: String) -> Result<(), String> {
@@ -9,43 +10,36 @@ pub async fn connect_to_peer(peer_addr: String) -> Result<(), String> {
     Ok(())
 }
 
-#[command]
-pub async fn get_current_peers(state: State<'_, AppState>) -> Result<Vec<PeerInfo>, String> {
-    let peers_arc = state.peers.lock().await;
-    let peers_map = peers_arc.read().await;
-
-    let peer_list = peers_map
-        .iter()
-        .map(|(id, peer)| PeerInfo {
-            id: id.clone(),
-            metadata: peer.metadata.clone(),
-        })
-        .collect();
-
-    Ok(peer_list)
+#[tauri::command]
+pub async fn get_current_peers(
+    peer_manager: State<'_, Arc<PeerManager>>,
+) -> Result<Vec<PeerInfo>, String> {
+    Ok(peer_manager.get_all_peers().await)
 }
 
 #[tauri::command]
 pub async fn update_name(
     new_name: String,
-    state: tauri::State<'_, AppState>,
+    identity: State<'_, Arc<RwLock<PeerIdentity>>>,
+    advertise_tx: State<'_, UnboundedSender<()>>,
 ) -> Result<(), String> {
-    if new_name.trim().is_empty() {
+    let trimmed = new_name.trim();
+    if trimmed.is_empty() {
         return Err("Name cannot be empty".to_string());
     }
 
-    let mut identity = state.identity.write().await;
+    let mut identity_guard = identity.write().await;
 
-    if new_name.trim() == identity.peer_name() {
+    if trimmed == identity_guard.peer_name() {
         return Ok(());
     }
 
-    identity.update_peer_name(new_name.trim());
-    drop(identity);
+    identity_guard.update_peer_name(trimmed);
 
-    let notifier = state.notifier.lock().await;
-    notifier.advertise();
-    drop(notifier);
+    // Send re-advertise signal
+    if advertise_tx.send(()).is_err() {
+        return Err("Failed to trigger re-advertisement".to_string());
+    }
 
     Ok(())
 }
