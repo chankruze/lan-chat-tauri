@@ -1,7 +1,7 @@
 use lan_chat::peer::{PeerIdentity, PeerInfo, PeerManager};
 use std::sync::Arc;
 use tauri::{command, State};
-use tokio::sync::{mpsc::UnboundedSender, RwLock};
+use tokio::sync::{mpsc::Sender, RwLock};
 
 #[command]
 pub async fn connect_to_peer(peer_addr: String) -> Result<(), String> {
@@ -21,7 +21,7 @@ pub async fn get_current_peers(
 pub async fn update_name(
     new_name: String,
     identity: State<'_, Arc<RwLock<PeerIdentity>>>,
-    advertise_tx: State<'_, UnboundedSender<()>>,
+    advertise_tx: State<'_, Sender<()>>,
 ) -> Result<(), String> {
     let trimmed = new_name.trim();
     if trimmed.is_empty() {
@@ -36,8 +36,7 @@ pub async fn update_name(
 
     identity_guard.update_peer_name(trimmed);
 
-    // Send re-advertise signal
-    if advertise_tx.send(()).is_err() {
+    if advertise_tx.send(()).await.is_err() {
         return Err("Failed to trigger re-advertisement".to_string());
     }
 

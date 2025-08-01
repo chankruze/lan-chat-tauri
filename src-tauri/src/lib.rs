@@ -4,6 +4,7 @@ use commands::*;
 use lan_chat::{
     networking::{discover, start_mdns_service_with_re_advertise},
     peer::{start_health_check, PeerEvent, PeerIdentity, PeerManager},
+    utils::init_logger,
 };
 use std::sync::Arc;
 use tauri::Emitter;
@@ -11,15 +12,16 @@ use tokio::sync::RwLock;
 
 #[tokio::main]
 pub async fn run() -> anyhow::Result<()> {
+    init_logger();
+
     let identity = Arc::new(RwLock::new(PeerIdentity::load_or_generate()));
-    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(32);
-    let peer_manager = PeerManager::new(event_tx);
-    let peer_manager = Arc::new(peer_manager);
+    let (peer_event_tx, mut peer_event_rx) = tokio::sync::mpsc::channel(32);
+    let peer_manager = Arc::new(PeerManager::new(peer_event_tx));
 
     let peer_id = identity.read().await.peer_id.clone();
 
     // Create mDNS re-advertise channel
-    let (advertise_tx, advertise_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (advertise_tx, advertise_rx) = tokio::sync::mpsc::channel(32);
 
     // Spawn mDNS advertiser
     tokio::spawn(start_mdns_service_with_re_advertise(
@@ -32,14 +34,14 @@ pub async fn run() -> anyhow::Result<()> {
     tokio::spawn(discover(peer_manager.clone(), peer_id));
 
     tauri::Builder::default()
-        .manage(identity.clone())
-        .manage(advertise_tx.clone())
+        .manage(identity)
+        .manage(advertise_tx)
         .manage(peer_manager)
         .setup(|app| {
             let handle = app.handle().clone();
 
             tokio::spawn(async move {
-                while let Some(event) = event_rx.recv().await {
+                while let Some(event) = peer_event_rx.recv().await {
                     let event_type = match &event {
                         PeerEvent::Joined { .. } => "peer-connected",
                         PeerEvent::Left { .. } => "peer-disconnected",
@@ -52,6 +54,7 @@ pub async fn run() -> anyhow::Result<()> {
                     handle.emit(event_type, event.clone()).unwrap();
                 }
             });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
