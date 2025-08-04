@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android keystore configs
+key-release.properties
+key-debug.properties
+*.jks
+*.keystore
