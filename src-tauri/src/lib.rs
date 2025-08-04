@@ -9,7 +9,6 @@ use std::sync::Arc;
 use tauri::Emitter;
 use tokio::sync::RwLock;
 
-#[tokio::main]
 pub async fn run() -> anyhow::Result<()> {
     let identity = Arc::new(RwLock::new(PeerIdentity::load_or_generate()));
     let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(32);
@@ -63,4 +62,11 @@ pub async fn run() -> anyhow::Result<()> {
         .expect("error while running Tauri application");
 
     Ok(())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub async fn mobile_entry() {
+    if let Err(err) = run().await {
+        eprintln!("Mobile app failed: {err}");
+    }
 }
