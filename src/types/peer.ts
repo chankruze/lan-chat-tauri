@@ -1,5 +1,6 @@
 export type PeerMetadata = {
-  addr: string;
+  mdnsAddr: string;
+  wsAddr: string;
   name: string;
   instance: string;
   version: string;

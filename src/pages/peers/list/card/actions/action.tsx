@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React from "react";
+import { ActionType } from "./actions";
 
 export const Action = ({
   icon,
@@ -7,13 +7,7 @@ export const Action = ({
   action,
   iconWrapperStyles,
   disabled = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  action: () => void;
-  iconWrapperStyles: string;
-  disabled?: boolean;
-}) => {
+}: ActionType) => {
   return (
     <div className="space-y-2 cursor-pointer flex flex-col items-center">
       <button

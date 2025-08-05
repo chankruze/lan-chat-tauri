@@ -10,6 +10,8 @@ interface PeerCardProps {
 export const Card = ({ peerInfo }: PeerCardProps) => {
   const [open, setOpen] = useState(false);
 
+  console.log(peerInfo);
+
   return (
     <>
       <div
@@ -26,7 +28,7 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
           <div className="text-neutral-400 text-xs line-clamp-2">
             {peerInfo.metadata?.instance}
           </div>
-          <div className="truncate text-xs">{peerInfo.metadata?.addr}</div>
+          <div className="truncate text-xs">{peerInfo.metadata?.mdnsAddr}</div>
           <div className="truncate text-right text-xs text-neutral-400">
             v{peerInfo.metadata?.version}
           </div>
