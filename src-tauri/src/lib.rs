@@ -79,6 +79,8 @@ pub async fn run() -> anyhow::Result<()> {
             get_current_peers,
             update_name,
             start_ws_server,
+            is_ws_server_running,
+            get_ws_server_address,
             send_message_to_peer
         ])
         .run(tauri::generate_context!())

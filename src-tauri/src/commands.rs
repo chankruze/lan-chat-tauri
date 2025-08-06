@@ -1,6 +1,6 @@
 use lan_chat::{
     peer::{PeerIdentity, PeerInfo, PeerManager},
-    ws::{start_websocket_server, WsManager},
+    ws::{ensure_websocket_server, WsManager},
 };
 use std::{net::SocketAddr, sync::Arc};
 use tauri::{command, State};
@@ -11,15 +11,24 @@ pub async fn start_ws_server(ws_manager: State<'_, Arc<WsManager>>) -> Result<()
     let addr: SocketAddr = "0.0.0.0:6767".parse().unwrap();
     let ws_manager = ws_manager.inner().clone();
 
-    tokio::spawn(async move {
-        if let Err(e) = start_websocket_server(addr, ws_manager).await {
-            eprintln!("Failed to start WebSocket server: {e}");
-        } else {
-            println!("WebSocket server started on {addr}");
-        }
-    });
+    ensure_websocket_server(addr, ws_manager)
+        .await
+        .map_err(|e| e.to_string())
+}
 
-    Ok(())
+#[command]
+pub async fn is_ws_server_running(ws_manager: State<'_, Arc<WsManager>>) -> Result<bool, String> {
+    Ok(ws_manager.is_server_running())
+}
+
+#[command]
+pub async fn get_ws_server_address(
+    ws_manager: State<'_, Arc<WsManager>>,
+) -> Result<Option<String>, String> {
+    Ok(ws_manager
+        .get_server_address()
+        .await
+        .map(|addr| addr.to_string()))
 }
 
 #[command]
