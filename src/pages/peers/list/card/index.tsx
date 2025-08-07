@@ -14,7 +14,7 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
   const [open, setOpen] = useState(false);
   const { getUnreadCount, sessions } = useChat();
   const navigate = useNavigate();
-  
+
   const unreadCount = getUnreadCount(peerInfo.id);
   const hasActiveChat = sessions[peerInfo.id]?.isActive;
 
@@ -39,15 +39,10 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
         {/* Unread message badge */}
         {unreadCount > 0 && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-medium">
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </div>
         )}
-        
-        {/* Active chat indicator */}
-        {hasActiveChat && (
-          <div className="absolute top-2 left-2 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        )}
-        
+
         <div className="flex items-center justify-between gap-4">
           <p className="font-semibold text-neutral-800 truncate flex-1">
             {peerInfo.metadata?.name || "Unknown Peer"}
@@ -64,17 +59,15 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
               v{peerInfo.metadata?.version}
             </div>
             {hasActiveChat && (
-              <span className="text-xs text-green-600 font-medium">● Active</span>
+              <span className="text-xs text-green-600 font-medium">
+                ● Active
+              </span>
             )}
           </div>
         </div>
       </div>
-      
-      <Actions 
-        peerInfo={peerInfo} 
-        open={open} 
-        onClose={() => setOpen(false)}
-      />
+
+      <Actions peerInfo={peerInfo} open={open} onClose={() => setOpen(false)} />
     </>
   );
 };

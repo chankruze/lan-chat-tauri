@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "react-toastify";
@@ -30,6 +31,19 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState<Record<string, ChatSession>>({});
   const [activeSession, setActiveSession] = useState<string | null>(null);
+
+  // Use refs to access current values in WebSocket listeners
+  const sessionsRef = useRef(sessions);
+  const activeSessionRef = useRef(activeSession);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+  
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
 
   // Generate unique IDs
   const generateId = () =>
@@ -152,10 +166,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             console.log("Received WebSocket message:", event.payload);
             const { addr, message } = event.payload;
 
-            // Find session by address
-            const session = Object.values(sessions).find(
+            // Find session by address using current state from ref
+            const currentSessions = sessionsRef.current;
+            const currentActiveSession = activeSessionRef.current;
+            const session = Object.values(currentSessions).find(
               (s) => s.peerAddress === addr,
             );
+            
             if (!session) {
               console.warn("Received message from unknown peer:", addr);
               return;
@@ -170,21 +187,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               isOutgoing: false,
             };
 
-            setSessions((prev) => ({
-              ...prev,
+            // Update sessions with new message
+            setSessions((prevSessions) => ({
+              ...prevSessions,
               [session.peerId]: {
-                ...prev[session.peerId],
-                messages: [...prev[session.peerId].messages, incomingMessage],
-                unreadCount:
-                  activeSession === session.peerId
-                    ? 0
-                    : prev[session.peerId].unreadCount + 1,
+                ...prevSessions[session.peerId],
+                messages: [...prevSessions[session.peerId].messages, incomingMessage],
+                unreadCount: currentActiveSession === session.peerId 
+                  ? 0 
+                  : prevSessions[session.peerId].unreadCount + 1,
                 lastActivity: Date.now(),
               },
             }));
 
             // Show toast notification if not in active session
-            if (activeSession !== session.peerId) {
+            if (currentActiveSession !== session.peerId) {
               const displayMessage =
                 message.length > 50
                   ? message.substring(0, 50) + "..."
@@ -204,8 +221,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             console.log("WebSocket connected:", event.payload);
             const { addr } = event.payload;
 
-            // Find session by address and mark as active
-            const session = Object.values(sessions).find(
+            // Find session by address using current state from ref
+            const currentSessions = sessionsRef.current;
+            const session = Object.values(currentSessions).find(
               (s) => s.peerAddress === addr,
             );
             if (session) {
@@ -227,8 +245,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             console.log("WebSocket disconnected:", event.payload);
             const { addr } = event.payload;
 
-            // Find session by address and mark as inactive
-            const session = Object.values(sessions).find(
+            // Find session by address using current state from ref
+            const currentSessions = sessionsRef.current;
+            const session = Object.values(currentSessions).find(
               (s) => s.peerAddress === addr,
             );
             if (session) {
@@ -259,7 +278,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     };
 
     setupWebSocketListeners();
-  }, [sessions, activeSession]);
+  }, []); // Only run once on mount
 
   // Auto-mark messages as read when session becomes active
   useEffect(() => {

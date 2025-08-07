@@ -1,21 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { RiSendPlaneLine, RiArrowLeftLine, RiUser3Line } from '@remixicon/react';
-import { useChat } from '@/context/ChatContext';
-import { ChatMessage } from '@/types/chat';
-import { StatusBar } from '@/components/status-bar';
-import { usePeers } from './hooks/use-peers';
+import React, { useState, useRef, useEffect } from "react";
+import { useParams, useNavigate } from "react-router";
+import {
+  RiSendPlaneLine,
+  RiArrowLeftLine,
+  RiUser3Line,
+} from "@remixicon/react";
+import { useChat } from "@/context/ChatContext";
+import { ChatMessage } from "@/types/chat";
+import { StatusBar } from "@/components/status-bar";
+import { usePeers } from "./hooks/use-peers";
 
 export default function PeerChatPage() {
   const { peerId } = useParams<{ peerId: string }>();
   const navigate = useNavigate();
-  const { sessions, sendMessage, markAsRead } = useChat();
+  const { sessions, sendMessage, markAsRead, setActiveSession } = useChat();
   const { peers } = usePeers();
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   if (!peerId) {
-    navigate('/peers');
+    navigate("/peers");
     return null;
   }
 
@@ -23,15 +27,21 @@ export default function PeerChatPage() {
   const peerInfo = peers[peerId];
 
   useEffect(() => {
-    // Mark messages as read when chat page is opened
+    // Set active session and mark messages as read when chat page is opened
     if (peerId) {
+      setActiveSession(peerId);
       markAsRead(peerId);
     }
-  }, [peerId, markAsRead]);
+
+    // Clean up active session when leaving the chat page
+    return () => {
+      setActiveSession(null);
+    };
+  }, [peerId, setActiveSession, markAsRead]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [session?.messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -40,15 +50,15 @@ export default function PeerChatPage() {
 
     try {
       await sendMessage(peerId, inputValue.trim());
-      setInputValue('');
+      setInputValue("");
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
       // You might want to show an error toast here
     }
   };
 
   const handleBack = () => {
-    navigate('/peers');
+    navigate("/peers");
   };
 
   if (!session) {
@@ -56,8 +66,12 @@ export default function PeerChatPage() {
       <main className="h-screen flex flex-col">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Chat not found</h3>
-            <p className="text-gray-600 mb-4">The chat session could not be found.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Chat not found
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The chat session could not be found.
+            </p>
             <button
               onClick={handleBack}
               className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
@@ -74,7 +88,7 @@ export default function PeerChatPage() {
   return (
     <main className="h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-gray-200 bg-white">
+      <div className="flex items-center gap-3 p-2 border-b border-gray-200 bg-white">
         <button
           onClick={handleBack}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -131,7 +145,9 @@ export default function PeerChatPage() {
             </button>
           </div>
           {!session.isActive && (
-            <p className="text-sm text-gray-500 mt-2">Peer is offline. Messages will be sent when they reconnect.</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Peer is offline. Messages will be sent when they reconnect.
+            </p>
           )}
         </form>
       </div>
@@ -141,25 +157,27 @@ export default function PeerChatPage() {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   return (
-    <div className={`flex ${message.isOutgoing ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`flex ${message.isOutgoing ? "justify-end" : "justify-start"}`}
+    >
       <div
         className={`max-w-[70%] px-3 py-2 rounded-lg ${
           message.isOutgoing
-            ? 'bg-blue-600 text-white'
-            : 'bg-white text-gray-900 border border-gray-200'
+            ? "bg-blue-600 text-white"
+            : "bg-white text-gray-900 border border-gray-200"
         }`}
       >
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         <p
           className={`text-xs mt-1 ${
-            message.isOutgoing ? 'text-blue-200' : 'text-gray-500'
+            message.isOutgoing ? "text-blue-200" : "text-gray-500"
           }`}
         >
           {formatTime(message.timestamp)}
