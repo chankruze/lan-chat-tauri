@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer } from "react-toastify";
 import "./tailwind.css";
-import 'react-toastify/dist/ReactToastify.css';
+import "react-toastify/dist/ReactToastify.css";
 import PeersIndexPage from "@/pages/peers";
 import PeerChatPage from "@/pages/peers/chat";
 import { ChatProvider } from "@/context/ChatContext";
@@ -12,8 +12,8 @@ const root = document.getElementById("root");
 
 ReactDOM.createRoot(root as HTMLElement).render(
   <React.StrictMode>
-    <ChatProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <ChatProvider>
         <Routes>
           <Route index element={<PeersIndexPage />} />
           <Route path="/peers" element={<PeersIndexPage />} />
@@ -31,7 +31,7 @@ ReactDOM.createRoot(root as HTMLElement).render(
           pauseOnHover
           theme="light"
         />
-      </BrowserRouter>
-    </ChatProvider>
+      </ChatProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 );
