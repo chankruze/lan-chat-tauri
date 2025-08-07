@@ -1,15 +1,10 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "react-toastify";
-import { ChatContextType, ChatSession, ChatMessage } from "@/types/chat";
-import { ensureServerAndConnect, sendMessageToPeer } from "@/services/ws";
+import { useNavigate } from "react-router";
+import { connectToPeer, sendMessageToPeer } from "@/services/ws";
+import routes from "@/routes";
+import { ChatMessage } from "@/types/chat";
 
 interface WsMessageEvent {
   type: "MessageReceived";
@@ -19,283 +14,118 @@ interface WsMessageEvent {
   message: string;
 }
 
-interface WsConnectionEvent {
-  type: "Connected" | "Disconnected";
-  id: string;
-  timestamp: string;
-  addr: string;
+interface SimpleChatContextType {
+  messages: Record<string, ChatMessage[]>; // peerId -> messages
+  sendMessage: (peerId: string, peerAddress: string, content: string) => Promise<void>;
+  connectToPeer: (peerId: string, peerAddress: string) => Promise<void>;
 }
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
+const ChatContext = createContext<SimpleChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const [sessions, setSessions] = useState<Record<string, ChatSession>>({});
-  const [activeSession, setActiveSession] = useState<string | null>(null);
-
-  // Use refs to access current values in WebSocket listeners
-  const sessionsRef = useRef(sessions);
-  const activeSessionRef = useRef(activeSession);
-  
-  // Update refs when state changes
-  useEffect(() => {
-    sessionsRef.current = sessions;
-  }, [sessions]);
-  
-  useEffect(() => {
-    activeSessionRef.current = activeSession;
-  }, [activeSession]);
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [currentChatPeerId, setCurrentChatPeerId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Generate unique IDs
-  const generateId = () =>
-    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  const startChat = useCallback(
-    async (peerId: string, peerName: string, peerAddress: string) => {
-      try {
-        // Ensure WebSocket server is running and connect
-        await ensureServerAndConnect(peerAddress);
+  // Connect to peer
+  const connectToPeerHandler = async (peerId: string, peerAddress: string) => {
+    try {
+      await connectToPeer(peerAddress);
+      toast.success(`Connected to peer`, { position: "top-right" });
+    } catch (error) {
+      console.error("Failed to connect to peer:", error);
+      toast.error(`Failed to connect to peer`, { position: "top-right" });
+    }
+  };
 
-        // Create or update session
-        setSessions((prev) => ({
-          ...prev,
-          [peerId]: prev[peerId]
-            ? {
-                ...prev[peerId],
-                isActive: true,
-                lastActivity: Date.now(),
-              }
-            : {
-                peerId,
-                peerName,
-                peerAddress,
-                messages: [],
-                unreadCount: 0,
-                lastActivity: Date.now(),
-                isActive: true,
-              },
-        }));
+  // Send message
+  const sendMessageHandler = async (peerId: string, peerAddress: string, content: string) => {
+    const message: ChatMessage = {
+      id: generateId(),
+      senderId: "self",
+      senderName: "You",
+      content,
+      timestamp: Date.now(),
+      isOutgoing: true,
+    };
 
-        // Show connection toast notification
-        toast.success(`Connected to ${peerName}`, {
-          position: "top-right",
-        });
-
-        // Set as active session
-        setActiveSession(peerId);
-      } catch (error) {
-        console.error("Failed to start chat:", error);
-        toast.error(`Failed to connect to ${peerName}`, {
-          position: "top-right",
-        });
-      }
-    },
-    [],
-  );
-
-  const sendMessage = useCallback(
-    async (peerId: string, content: string) => {
-      const session = sessions[peerId];
-      if (!session) {
-        throw new Error("No active session found");
-      }
-
-      const message: ChatMessage = {
-        id: generateId(),
-        senderId: "self", // You might want to get actual user ID
-        senderName: "You",
-        content,
-        timestamp: Date.now(),
-        isOutgoing: true,
-      };
-
-      // Add message to session
-      setSessions((prev) => ({
-        ...prev,
-        [peerId]: {
-          ...prev[peerId],
-          messages: [...prev[peerId].messages, message],
-          lastActivity: Date.now(),
-        },
-      }));
-
-      // Send via WebSocket
-      try {
-        await sendMessageToPeer(session.peerAddress, content);
-      } catch (error) {
-        console.error("Failed to send message:", error);
-        // You might want to mark message as failed and show error
-      }
-    },
-    [sessions],
-  );
-
-  const markAsRead = useCallback((peerId: string) => {
-    setSessions((prev) => ({
+    // Add message to local state
+    setMessages(prev => ({
       ...prev,
-      [peerId]: prev[peerId]
-        ? {
-            ...prev[peerId],
-            unreadCount: 0,
-          }
-        : prev[peerId],
+      [peerId]: [...(prev[peerId] || []), message],
     }));
-  }, []);
 
-  const getTotalUnreadCount = useCallback(() => {
-    return Object.values(sessions).reduce(
-      (total, session) => total + session.unreadCount,
-      0,
-    );
-  }, [sessions]);
-
-  const getUnreadCount = useCallback(
-    (peerId: string) => {
-      return sessions[peerId]?.unreadCount || 0;
-    },
-    [sessions],
-  );
+    // Send via WebSocket
+    try {
+      await sendMessageToPeer(peerAddress, content);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast.error("Failed to send message", { position: "top-right" });
+    }
+  };
 
   // Handle incoming WebSocket messages
   useEffect(() => {
-    const setupWebSocketListeners = async () => {
+    const setupWebSocketListener = async () => {
       try {
-        // Listen for WebSocket messages
-        const unlistenMessage = await listen<WsMessageEvent>(
-          "ws-message",
-          (event) => {
-            console.log("Received WebSocket message:", event.payload);
-            const { addr, message } = event.payload;
+        const unlisten = await listen<WsMessageEvent>("ws-message", (event) => {
+          const { addr, message: content } = event.payload;
+          
+          // We need to find the peerId from the address
+          // For now, let's use a simple approach - we'll get this from peers hook
+          
+          const message: ChatMessage = {
+            id: generateId(),
+            senderId: addr, // We'll use address as sender ID for now
+            senderName: "Peer",
+            content,
+            timestamp: Date.now(),
+            isOutgoing: false,
+          };
 
-            // Find session by address using current state from ref
-            const currentSessions = sessionsRef.current;
-            const currentActiveSession = activeSessionRef.current;
-            const session = Object.values(currentSessions).find(
-              (s) => s.peerAddress === addr,
-            );
-            
-            if (!session) {
-              console.warn("Received message from unknown peer:", addr);
-              return;
-            }
+          // Check if we're currently in a chat with this peer
+          const currentPath = window.location.pathname;
+          const chatRouteMatch = currentPath.match(/\/peers\/([^/]+)\/chat/);
+          const currentChatPeerFromRoute = chatRouteMatch ? chatRouteMatch[1] : null;
 
-            const incomingMessage: ChatMessage = {
-              id: generateId(),
-              senderId: session.peerId,
-              senderName: session.peerName,
-              content: message,
-              timestamp: Date.now(),
-              isOutgoing: false,
-            };
+          // For now, let's use address as peerId (we can improve this later)
+          const peerId = addr.replace(/[.:]/g, '_'); // Convert address to valid peerId
+          
+          // Add message to state
+          setMessages(prev => ({
+            ...prev,
+            [peerId]: [...(prev[peerId] || []), message],
+          }));
 
-            // Update sessions with new message
-            setSessions((prevSessions) => ({
-              ...prevSessions,
-              [session.peerId]: {
-                ...prevSessions[session.peerId],
-                messages: [...prevSessions[session.peerId].messages, incomingMessage],
-                unreadCount: currentActiveSession === session.peerId 
-                  ? 0 
-                  : prevSessions[session.peerId].unreadCount + 1,
-                lastActivity: Date.now(),
+          // Show toast notification if not in active chat
+          if (currentChatPeerFromRoute !== peerId) {
+            const displayMessage = content.length > 50 ? content.substring(0, 50) + "..." : content;
+            toast.info(`New message: ${displayMessage}`, {
+              position: "top-right",
+              autoClose: 5000,
+              onClick: () => {
+                navigate(routes.peers.peer.chat.path(peerId));
               },
-            }));
+            });
+          }
+        });
 
-            // Show toast notification if not in active session
-            if (currentActiveSession !== session.peerId) {
-              const displayMessage =
-                message.length > 50
-                  ? message.substring(0, 50) + "..."
-                  : message;
-              toast.info(`${session.peerName}: ${displayMessage}`, {
-                position: "top-right",
-                autoClose: 5000,
-              });
-            }
-          },
-        );
-
-        // Listen for WebSocket connections
-        const unlistenConnected = await listen<WsConnectionEvent>(
-          "ws-connected",
-          (event) => {
-            console.log("WebSocket connected:", event.payload);
-            const { addr } = event.payload;
-
-            // Find session by address using current state from ref
-            const currentSessions = sessionsRef.current;
-            const session = Object.values(currentSessions).find(
-              (s) => s.peerAddress === addr,
-            );
-            if (session) {
-              setSessions((prev) => ({
-                ...prev,
-                [session.peerId]: {
-                  ...prev[session.peerId],
-                  isActive: true,
-                },
-              }));
-            }
-          },
-        );
-
-        // Listen for WebSocket disconnections
-        const unlistenDisconnected = await listen<WsConnectionEvent>(
-          "ws-disconnected",
-          (event) => {
-            console.log("WebSocket disconnected:", event.payload);
-            const { addr } = event.payload;
-
-            // Find session by address using current state from ref
-            const currentSessions = sessionsRef.current;
-            const session = Object.values(currentSessions).find(
-              (s) => s.peerAddress === addr,
-            );
-            if (session) {
-              setSessions((prev) => ({
-                ...prev,
-                [session.peerId]: {
-                  ...prev[session.peerId],
-                  isActive: false,
-                },
-              }));
-
-              toast.warning(`Disconnected from ${session.peerName}`, {
-                position: "top-right",
-                autoClose: 5000,
-              });
-            }
-          },
-        );
-
-        return () => {
-          unlistenMessage();
-          unlistenConnected();
-          unlistenDisconnected();
-        };
+        return unlisten;
       } catch (error) {
-        console.error("Failed to setup WebSocket listeners:", error);
+        console.error("Failed to setup WebSocket listener:", error);
       }
     };
 
-    setupWebSocketListeners();
-  }, []); // Only run once on mount
+    setupWebSocketListener();
+  }, [navigate]);
 
-  // Auto-mark messages as read when session becomes active
-  useEffect(() => {
-    if (activeSession) {
-      markAsRead(activeSession);
-    }
-  }, [activeSession, markAsRead]);
-
-  const value: ChatContextType = {
-    sessions,
-    activeSession,
-    startChat,
-    sendMessage,
-    markAsRead,
-    setActiveSession,
-    getTotalUnreadCount,
-    getUnreadCount,
+  const value: SimpleChatContextType = {
+    messages,
+    sendMessage: sendMessageHandler,
+    connectToPeer: connectToPeerHandler,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

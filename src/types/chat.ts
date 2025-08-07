@@ -18,12 +18,7 @@ export interface ChatSession {
 }
 
 export interface ChatContextType {
-  sessions: Record<string, ChatSession>;
-  activeSession: string | null;
-  startChat: (peerId: string, peerName: string, peerAddress: string) => Promise<void>;
-  sendMessage: (peerId: string, content: string) => Promise<void>;
-  markAsRead: (peerId: string) => void;
-  setActiveSession: (peerId: string | null) => void;
-  getTotalUnreadCount: () => number;
-  getUnreadCount: (peerId: string) => number;
+  messages: Record<string, ChatMessage[]>; // peerId -> messages
+  sendMessage: (peerId: string, peerAddress: string, content: string) => Promise<void>;
+  connectToPeer: (peerId: string, peerAddress: string) => Promise<void>;
 }

@@ -15,9 +15,8 @@ export type ActionType = {
 interface ActionCallbacks {
   onClose: () => void;
   navigate: (path: string) => void;
-  startChat: (
+  connectToPeer: (
     peerId: string,
-    peerName: string,
     peerAddress: string,
   ) => Promise<void>;
 }
@@ -26,7 +25,7 @@ export const actions = (
   peerInfo: PeerInfo,
   callbacks: ActionCallbacks,
 ): ActionType[] => {
-  const { onClose, navigate, startChat } = callbacks;
+  const { onClose, navigate, connectToPeer } = callbacks;
 
   return [
     {
@@ -46,8 +45,8 @@ export const actions = (
         }
 
         try {
-          // Use chat context to start chat
-          await startChat(peerInfo.id, peerName, wsAddr);
+          // Connect to peer
+          await connectToPeer(peerInfo.id, wsAddr);
 
           // Close action menu and navigate to chat
           onClose();
@@ -75,8 +74,8 @@ export const actions = (
         }
 
         try {
-          // Start chat session first
-          await startChat(peerInfo.id, peerName, wsAddr);
+          // Connect to peer first
+          await connectToPeer(peerInfo.id, wsAddr);
 
           // Close action menu and navigate to chat
           onClose();

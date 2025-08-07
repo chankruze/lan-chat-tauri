@@ -27,6 +27,15 @@ pub async fn run() -> anyhow::Result<()> {
     let (ws_event_tx, mut ws_event_rx) = tokio::sync::mpsc::channel(32);
     let ws_manager = Arc::new(WsManager::new(ws_event_tx));
 
+    // Start WebSocket server automatically
+    let ws_manager_for_server = ws_manager.clone();
+    tokio::spawn(async move {
+        let addr: std::net::SocketAddr = "0.0.0.0:6767".parse().unwrap();
+        if let Err(e) = lan_chat::ws::ensure_websocket_server(addr, ws_manager_for_server).await {
+            eprintln!("Failed to start WebSocket server: {}", e);
+        }
+    });
+
     // Spawn mDNS advertiser
     tokio::spawn(start_mdns_service_with_re_advertise(
         identity.clone(),

@@ -18,10 +18,10 @@ export const Actions = ({
   onClose: () => void;
 }) => {
   const isSmUp = useMediaQuery("(min-width: 640px)");
-  const { startChat } = useChat();
+  const { connectToPeer } = useChat();
   const navigate = useNavigate();
 
-  const actionItems = actions(peerInfo, { onClose, navigate, startChat });
+  const actionItems = actions(peerInfo, { onClose, navigate, connectToPeer });
 
   const content = (
     <div className="space-y-4 divide-neutral-100">

@@ -13,7 +13,7 @@ import { usePeers } from "./hooks/use-peers";
 export default function PeerChatPage() {
   const { peerId } = useParams<{ peerId: string }>();
   const navigate = useNavigate();
-  const { sessions, sendMessage, markAsRead, setActiveSession } = useChat();
+  const { messages, sendMessage, connectToPeer } = useChat();
   const { peers } = usePeers();
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -23,33 +23,28 @@ export default function PeerChatPage() {
     return null;
   }
 
-  const session = sessions[peerId];
+  const peerMessages = messages[peerId] || [];
   const peerInfo = peers[peerId];
+  const peerAddress = peerInfo?.metadata?.wsAddr;
 
   useEffect(() => {
-    // Set active session and mark messages as read when chat page is opened
-    if (peerId) {
-      setActiveSession(peerId);
-      markAsRead(peerId);
+    // Connect to peer when chat page loads
+    if (peerId && peerAddress) {
+      connectToPeer(peerId, peerAddress);
     }
-
-    // Clean up active session when leaving the chat page
-    return () => {
-      setActiveSession(null);
-    };
-  }, [peerId, setActiveSession, markAsRead]);
+  }, [peerId, peerAddress, connectToPeer]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages]);
+  }, [peerMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || !peerId) return;
+    if (!inputValue.trim() || !peerId || !peerAddress) return;
 
     try {
-      await sendMessage(peerId, inputValue.trim());
+      await sendMessage(peerId, peerAddress, inputValue.trim());
       setInputValue("");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -61,16 +56,16 @@ export default function PeerChatPage() {
     navigate("/peers");
   };
 
-  if (!session) {
+  if (!peerInfo) {
     return (
       <main className="h-screen flex flex-col">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Chat not found
+              Peer not found
             </h3>
             <p className="text-gray-600 mb-4">
-              The chat session could not be found.
+              The peer could not be found.
             </p>
             <button
               onClick={handleBack}
@@ -99,25 +94,21 @@ export default function PeerChatPage() {
           <RiUser3Line className="w-5 h-5 text-blue-600" />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-gray-900">{session.peerName}</h3>
+          <h3 className="font-semibold text-gray-900">{peerInfo.metadata?.name || "Unknown Peer"}</h3>
           <p className="text-sm text-gray-500">
-            {session.isActive ? (
-              <span className="text-green-600">● Online</span>
-            ) : (
-              <span className="text-gray-400">○ Offline</span>
-            )}
+            <span className="text-green-600">● Online</span>
           </p>
         </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-        {session.messages.length === 0 ? (
+        {peerMessages.length === 0 ? (
           <div className="text-center text-gray-500 mt-8">
             <p>No messages yet. Start a conversation!</p>
           </div>
         ) : (
-          session.messages.map((message) => (
+          peerMessages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))
         )}
@@ -134,21 +125,15 @@ export default function PeerChatPage() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Type a message..."
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={!session.isActive}
             />
             <button
               type="submit"
-              disabled={!inputValue.trim() || !session.isActive}
+              disabled={!inputValue.trim()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <RiSendPlaneLine className="w-4 h-4" />
             </button>
           </div>
-          {!session.isActive && (
-            <p className="text-sm text-gray-500 mt-2">
-              Peer is offline. Messages will be sent when they reconnect.
-            </p>
-          )}
         </form>
       </div>
     </main>

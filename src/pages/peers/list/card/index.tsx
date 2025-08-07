@@ -12,15 +12,15 @@ interface PeerCardProps {
 
 export const Card = ({ peerInfo }: PeerCardProps) => {
   const [open, setOpen] = useState(false);
-  const { getUnreadCount, sessions } = useChat();
+  const { messages } = useChat();
   const navigate = useNavigate();
-
-  const unreadCount = getUnreadCount(peerInfo.id);
-  const hasActiveChat = sessions[peerInfo.id]?.isActive;
+  
+  const peerMessages = messages[peerInfo.id] || [];
+  const unreadCount = peerMessages.length; // Simple unread count for now
 
   const handleCardClick = () => {
-    // If there's an active chat or unread messages, navigate to chat directly
-    if (hasActiveChat || unreadCount > 0) {
+    // If there are messages, navigate to chat directly
+    if (unreadCount > 0) {
       navigate(routes.peers.peer.chat.path(peerInfo.id));
     } else {
       // Otherwise, show action menu
@@ -58,11 +58,6 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
             <div className="truncate text-xs text-neutral-400">
               v{peerInfo.metadata?.version}
             </div>
-            {hasActiveChat && (
-              <span className="text-xs text-green-600 font-medium">
-                ● Active
-              </span>
-            )}
           </div>
         </div>
       </div>
