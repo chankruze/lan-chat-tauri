@@ -28,6 +28,7 @@ const routes = {
     index: "/peers",
     peer: {
       index: defineRoute("/peers/:peerId"),
+      chat: defineRoute("/peers/:peerId/chat"),
     }
   },
   settings: {

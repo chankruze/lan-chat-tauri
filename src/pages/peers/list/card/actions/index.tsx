@@ -6,20 +6,22 @@ import { Divider } from "@/components/divider";
 import { actions, ActionType } from "./actions";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useChat } from "@/context/ChatContext";
+import { useNavigate } from "react-router";
 
 export const Actions = ({
   peerInfo,
   open,
   onClose,
-  onChatOpen,
 }: {
   peerInfo: PeerInfo;
   open: boolean;
   onClose: () => void;
-  onChatOpen: () => void;
 }) => {
   const isSmUp = useMediaQuery("(min-width: 640px)");
   const { startChat } = useChat();
+  const navigate = useNavigate();
+
+  const actionItems = actions(peerInfo, { onClose, navigate, startChat });
 
   const content = (
     <div className="space-y-4 divide-neutral-100">
@@ -34,7 +36,7 @@ export const Actions = ({
       </div>
       <Divider />
       <div className="grid grid-cols-3 gap-6">
-        {actions(peerInfo, { onClose, onChatOpen, startChat }).map((action: ActionType) => (
+        {actionItems.map((action: ActionType) => (
           <Action key={action.id} {...action} />
         ))}
       </div>

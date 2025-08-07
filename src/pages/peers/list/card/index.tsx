@@ -3,7 +3,8 @@ import { PeerInfo } from "@/types/peer";
 import { platformIcon } from "@/utils/platform-icons";
 import { Actions } from "./actions";
 import { useChat } from "@/context/ChatContext";
-import { ChatWindow } from "@/components/chat/ChatWindow";
+import { useNavigate } from "react-router";
+import routes from "@/routes";
 
 interface PeerCardProps {
   peerInfo: PeerInfo;
@@ -11,16 +12,16 @@ interface PeerCardProps {
 
 export const Card = ({ peerInfo }: PeerCardProps) => {
   const [open, setOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const { getUnreadCount, sessions } = useChat();
+  const navigate = useNavigate();
   
   const unreadCount = getUnreadCount(peerInfo.id);
   const hasActiveChat = sessions[peerInfo.id]?.isActive;
 
   const handleCardClick = () => {
-    // If there's an active chat or unread messages, open chat directly
+    // If there's an active chat or unread messages, navigate to chat directly
     if (hasActiveChat || unreadCount > 0) {
-      setChatOpen(true);
+      navigate(routes.peers.peer.chat.path(peerInfo.id));
     } else {
       // Otherwise, show action menu
       setOpen(true);
@@ -73,15 +74,7 @@ export const Card = ({ peerInfo }: PeerCardProps) => {
         peerInfo={peerInfo} 
         open={open} 
         onClose={() => setOpen(false)}
-        onChatOpen={() => setChatOpen(true)}
       />
-      
-      {chatOpen && (
-        <ChatWindow 
-          peerId={peerInfo.id} 
-          onClose={() => setChatOpen(false)} 
-        />
-      )}
     </>
   );
 };

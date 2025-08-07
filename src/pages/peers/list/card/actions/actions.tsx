@@ -1,5 +1,6 @@
 import { RiChat1Fill, RiGamepadFill, RiShareFill } from "@remixicon/react";
 import { PeerInfo } from "@/types/peer";
+import routes from "@/routes";
 
 export type ActionType = {
   id: string;
@@ -13,13 +14,20 @@ export type ActionType = {
 
 interface ActionCallbacks {
   onClose: () => void;
-  onChatOpen: () => void;
-  startChat: (peerId: string, peerName: string, peerAddress: string) => Promise<void>;
+  navigate: (path: string) => void;
+  startChat: (
+    peerId: string,
+    peerName: string,
+    peerAddress: string,
+  ) => Promise<void>;
 }
 
-export const actions = (peerInfo: PeerInfo, callbacks: ActionCallbacks): ActionType[] => {
-  const { onClose, onChatOpen, startChat } = callbacks;
-  
+export const actions = (
+  peerInfo: PeerInfo,
+  callbacks: ActionCallbacks,
+): ActionType[] => {
+  const { onClose, navigate, startChat } = callbacks;
+
   return [
     {
       id: "chat",
@@ -40,11 +48,11 @@ export const actions = (peerInfo: PeerInfo, callbacks: ActionCallbacks): ActionT
         try {
           // Use chat context to start chat
           await startChat(peerInfo.id, peerName, wsAddr);
-          
-          // Close action menu and open chat window
+
+          // Close action menu and navigate to chat
           onClose();
-          onChatOpen();
-          
+          navigate(routes.peers.peer.chat.path(peerInfo.id));
+
           console.log("Chat initiated with", peerName);
         } catch (err) {
           console.error("Error during chat initiation:", err);
@@ -60,7 +68,7 @@ export const actions = (peerInfo: PeerInfo, callbacks: ActionCallbacks): ActionT
       action: async () => {
         const wsAddr = peerInfo.metadata?.wsAddr;
         const peerName = peerInfo.metadata?.name || "Unknown Peer";
-        
+
         if (!wsAddr) {
           console.error("No WebSocket address found for peer");
           return;
@@ -69,11 +77,11 @@ export const actions = (peerInfo: PeerInfo, callbacks: ActionCallbacks): ActionT
         try {
           // Start chat session first
           await startChat(peerInfo.id, peerName, wsAddr);
-          
-          // Close action menu and open chat window
+
+          // Close action menu and navigate to chat
           onClose();
-          onChatOpen();
-          
+          navigate(routes.peers.peer.chat.path(peerInfo.id));
+
           console.log("File transfer initiated with", peerName);
         } catch (err) {
           console.error("Error during file transfer initiation:", err);
