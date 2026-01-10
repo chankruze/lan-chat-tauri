@@ -16,7 +16,11 @@ interface WsMessageEvent {
 
 interface SimpleChatContextType {
   messages: Record<string, ChatMessage[]>; // peerId -> messages
-  sendMessage: (peerId: string, peerAddress: string, content: string) => Promise<void>;
+  sendMessage: (
+    peerId: string,
+    peerAddress: string,
+    content: string,
+  ) => Promise<void>;
   connectToPeer: (peerId: string, peerAddress: string) => Promise<void>;
 }
 
@@ -24,11 +28,14 @@ const ChatContext = createContext<SimpleChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
-  const [currentChatPeerId, setCurrentChatPeerId] = useState<string | null>(null);
+  const [currentChatPeerId, setCurrentChatPeerId] = useState<string | null>(
+    null,
+  );
   const navigate = useNavigate();
 
   // Generate unique IDs
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () =>
+    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   // Connect to peer
   const connectToPeerHandler = async (peerId: string, peerAddress: string) => {
@@ -42,7 +49,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Send message
-  const sendMessageHandler = async (peerId: string, peerAddress: string, content: string) => {
+  const sendMessageHandler = async (
+    peerId: string,
+    peerAddress: string,
+    content: string,
+  ) => {
     const message: ChatMessage = {
       id: generateId(),
       senderId: "self",
@@ -53,7 +64,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Add message to local state
-    setMessages(prev => ({
+    setMessages((prev) => ({
       ...prev,
       [peerId]: [...(prev[peerId] || []), message],
     }));
@@ -73,10 +84,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       try {
         const unlisten = await listen<WsMessageEvent>("ws-message", (event) => {
           const { addr, message: content } = event.payload;
-          
+
           // We need to find the peerId from the address
           // For now, let's use a simple approach - we'll get this from peers hook
-          
+
           const message: ChatMessage = {
             id: generateId(),
             senderId: addr, // We'll use address as sender ID for now
@@ -89,23 +100,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // Check if we're currently in a chat with this peer
           const currentPath = window.location.pathname;
           const chatRouteMatch = currentPath.match(/\/peers\/([^/]+)\/chat/);
-          const currentChatPeerFromRoute = chatRouteMatch ? chatRouteMatch[1] : null;
+          const currentChatPeerFromRoute = chatRouteMatch
+            ? chatRouteMatch[1]
+            : null;
 
           // For now, let's use address as peerId (we can improve this later)
-          const peerId = addr.replace(/[.:]/g, '_'); // Convert address to valid peerId
-          
+          const peerId = addr.replace(/[.:]/g, "_"); // Convert address to valid peerId
+
           // Add message to state
-          setMessages(prev => ({
+          setMessages((prev) => ({
             ...prev,
             [peerId]: [...(prev[peerId] || []), message],
           }));
 
           // Show toast notification if not in active chat
           if (currentChatPeerFromRoute !== peerId) {
-            const displayMessage = content.length > 50 ? content.substring(0, 50) + "..." : content;
-            toast.info(`New message: ${displayMessage}`, {
-              position: "top-right",
-              autoClose: 5000,
+            const displayMessage =
+              content.length > 50 ? content.substring(0, 50) + "..." : content;
+            toast.info(displayMessage, {
               onClick: () => {
                 navigate(routes.peers.peer.chat.path(peerId));
               },

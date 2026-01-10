@@ -32,7 +32,7 @@ pub async fn run() -> anyhow::Result<()> {
     tokio::spawn(async move {
         let addr: std::net::SocketAddr = "0.0.0.0:6767".parse().unwrap();
         if let Err(e) = lan_chat::ws::ensure_websocket_server(addr, ws_manager_for_server).await {
-            eprintln!("Failed to start WebSocket server: {}", e);
+            eprintln!("Failed to start WebSocket server: {e}");
         }
     });
 

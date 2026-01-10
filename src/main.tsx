@@ -21,14 +21,11 @@ ReactDOM.createRoot(root as HTMLElement).render(
         </Routes>
         <ToastContainer
           position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
+          autoClose={3000}
+          hideProgressBar={true}
           newestOnTop
           closeOnClick
           rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
           theme="light"
         />
       </ChatProvider>
